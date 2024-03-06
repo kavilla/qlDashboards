@@ -1,0 +1,7 @@
+{
+  "prefix": "qlDashboards",
+  "paths": {
+    "qlDashboards": "."
+  },
+  "translations": ["translations/ja-JP.json"]
+}
