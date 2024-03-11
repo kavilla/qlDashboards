@@ -1,18 +1,11 @@
 import { first } from 'rxjs/operators';
 import { SharedGlobalConfig, Logger, ILegacyClusterClient } from 'opensearch-dashboards/server';
-import { SearchResponse } from 'elasticsearch';
 import { Observable } from 'rxjs';
-import { ApiResponse } from '@opensearch-project/opensearch';
 import { DataSourcePluginSetup } from 'src/plugins/data_source/server';
-import { TransportRequestPromise } from '@opensearch-project/opensearch/lib/Transport';
 import {
   ISearchStrategy,
   getDefaultSearchParams,
-  getTotalLoaded,
-  getShardTimeout,
-  shimAbortSignal,
   SearchUsage,
-  toSnakeCase,
 } from '../../../../src/plugins/data/server';
 import { PPLFacet } from './ppl_facet';
 
@@ -26,8 +19,32 @@ export const pplSearchStrategyProvider = (
 ): ISearchStrategy => {
   const pplFacet = new PPLFacet(client);
 
+  const handleEmptyRequest = () => {
+    return {
+      success: true,
+      isPartial: false,
+      isRunning: false,
+      rawResponse: {
+        took: 0,
+        timed_out: false,
+        _shards: {
+          total: 1,
+          successful: 1,
+          skipped: 0,
+          failed: 0,
+        },
+        hits: {
+          hits: [],
+        },
+      },
+      total: 0,
+      loaded: 0,
+      withLongNumeralsSupport: withLongNumeralsSupport ?? false,
+    };
+  }
+
   return {
-    search: async (context, request, options) => {
+    search: async (context, request: any, options) => {
       const config = await config$.pipe(first()).toPromise();
       const uiSettingsClient = await context.core.uiSettings.client;
 
@@ -40,11 +57,10 @@ export const pplSearchStrategyProvider = (
       // ignoreThrottled is not supported in OSS
       const { ignoreThrottled, ...defaultParams } = await getDefaultSearchParams(uiSettingsClient);
 
-      const params = toSnakeCase({
-        ...defaultParams,
-        ...getShardTimeout(config),
-        ...request.params,
-      });
+      // const params = toSnakeCase({
+      //   ...defaultParams,
+      //   ...getShardTimeout(config),
+      // });
 
       try {
         if (
@@ -55,30 +71,50 @@ export const pplSearchStrategyProvider = (
           throw new Error(`Data source id is required when no openseach hosts config provided`);
         }
 
-        const promise = shimAbortSignal(
-          (pplFacet.describeQuery(params?.body?.query) as unknown) as TransportRequestPromise<
-            SearchResponse<any>
-          >,
-          options?.abortSignal
-        );
+        if (!request.body.query) {
+          return handleEmptyRequest();
+        }
 
-        const { body: rawResponse } = ((await promise) as unknown) as ApiResponse<
-          SearchResponse<any>
-        >;
+        const rawResponse: any = await pplFacet.describeQuery(request);
+        const query: string = request.body.query;
+        const source = query.substring(query.indexOf('search source=') + 14, query.indexOf('|'));
+        const fields = query.substring(query.indexOf('fields') + 7).split(',');
 
-        logger.info(JSON.stringify(rawResponse));
+        const response = rawResponse.data.datarows.map((hit: any) => {
+          return {
+            _index: source,
+            _source: fields.reduce((obj: any, field: string, index: number) => {
+              obj[field] = hit[index];
+              return obj;
+            }, {}),
+          };
+        });
 
-        if (usage) usage.trackSuccess(rawResponse.took);
+        // if (usage) usage.trackSuccess(rawResponse.took);
 
         // The above query will either complete or timeout and throw an error.
         // There is no progress indication on this api.
         return {
+          success: true,
           isPartial: false,
           isRunning: false,
-          rawResponse: rawResponse.hits.hits[0]._source,
-          ...getTotalLoaded(rawResponse._shards),
-          withLongNumeralsSupport,
-        };
+          rawResponse: {
+            took: 0,
+            timed_out: false,
+            _shards: {
+              total: 1,
+              successful: 1,
+              skipped: 0,
+              failed: 0,
+            },
+            hits: {
+              hits: response,
+            },
+          },
+          total: rawResponse.data.total,
+          loaded: rawResponse.data.size,
+          withLongNumeralsSupport: withLongNumeralsSupport ?? false,
+        } as any;
       } catch (e) {
         if (usage) usage.trackError();
 

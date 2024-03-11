@@ -38,11 +38,10 @@ export class QlDashboardsPlugin
       plugins: [PPLPlugin, EnginePlugin],
     });
 
-    defineRoutes(router, new PPLFacet(client));
-    data.search.registerSearchStrategy(
-      PPL_SEARCH_STRATEGY,
-      pplSearchStrategyProvider(this.config$, this.logger, client)
-    );
+    const searchStrategy = pplSearchStrategyProvider(this.config$, this.logger, client);
+    data.search.registerSearchStrategy(PPL_SEARCH_STRATEGY, searchStrategy);
+
+    defineRoutes(this.logger, router, searchStrategy);
 
     this.logger.info('qlDashboards: Setup complete');
     return {};

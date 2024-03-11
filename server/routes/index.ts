@@ -1,8 +1,13 @@
 import { schema } from '@osd/config-schema';
-import { IOpenSearchDashboardsResponse, IRouter, ResponseError } from '../../../../src/core/server';
-import { PPLFacet } from '../search/ppl_facet';
+import {
+  IOpenSearchDashboardsResponse,
+  IRouter,
+  Logger,
+  ResponseError,
+} from '../../../../src/core/server';
+import { ISearchStrategy } from '../../../../src/plugins/data/server';
 
-export function defineRoutes(router: IRouter, facet: PPLFacet) {
+export function defineRoutes(logger: Logger, router: IRouter, searchStrategy: ISearchStrategy) {
   router.post(
     {
       path: `/api/ql/search`,
@@ -14,11 +19,14 @@ export function defineRoutes(router: IRouter, facet: PPLFacet) {
       },
     },
     async (context, req, res): Promise<IOpenSearchDashboardsResponse<any | ResponseError>> => {
-      const queryRes: any = await facet.describeQuery(req);
+      logger.info('kawikaq');
+
+      const queryRes: any = await searchStrategy.search(context, req as any, {});
+      logger.info(queryRes);
       if (queryRes.success) {
         const result: any = {
           body: {
-            ...queryRes.data,
+            ...queryRes,
           },
         };
         return res.ok(result);
