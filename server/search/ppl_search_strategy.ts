@@ -41,7 +41,7 @@ export const pplSearchStrategyProvider = (
       loaded: 0,
       withLongNumeralsSupport: withLongNumeralsSupport ?? false,
     };
-  }
+  };
 
   return {
     search: async (context, request: any, options) => {

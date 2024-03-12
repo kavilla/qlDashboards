@@ -19,10 +19,7 @@ export function defineRoutes(logger: Logger, router: IRouter, searchStrategy: IS
       },
     },
     async (context, req, res): Promise<IOpenSearchDashboardsResponse<any | ResponseError>> => {
-      logger.info('kawikaq');
-
       const queryRes: any = await searchStrategy.search(context, req as any, {});
-      logger.info(queryRes);
       if (queryRes.success) {
         const result: any = {
           body: {
