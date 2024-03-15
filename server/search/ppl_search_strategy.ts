@@ -43,6 +43,38 @@ export const pplSearchStrategyProvider = (
     };
   };
 
+  // search source=opensearch_dashboards_sample_data_logs| fields agent,bytes,timestamp,clientip | stats count() by span(timestamp, 12h) | where timestamp >= '2024-02-02 16:00:00.000000' and timestamp <= '2024-03-15 16:49:13.456000'
+
+  const parseRequest = (query: string) => {
+    const pipeMap = new Map<string, string>();
+    const pipeArray = query.split('|');
+    pipeArray.forEach((pipe, index) => {
+      const split = pipe.trim().split(index === 0 ? '=' : ' ');
+      const key = split[0];
+      const value = pipe.replace(index === 0 ? `${key}=` : key, '').trim();
+      pipeMap.set(key, value);
+    });
+
+    const source = pipeMap.get('search source');
+    const searchQuery = Array.from(pipeMap.entries())
+      .filter(([key]) => key !== 'stats')
+      .map(([key, value]) => (key === 'search source' ? `${key}=${value}` : `${key} ${value}`))
+      .join(' | ');
+
+    const filters = pipeMap.get('where');
+
+    const stats = pipeMap.get('stats');
+    const aggsQuery = stats
+      ? `search source=${source} ${filters ? `| where ${filters}` : ''} | stats ${stats}`
+      : undefined;
+
+    return {
+      map: pipeMap,
+      search: searchQuery,
+      aggs: aggsQuery,
+    };
+  };
+
   return {
     search: async (context, request: any, options) => {
       const config = await config$.pipe(first()).toPromise();
@@ -75,10 +107,14 @@ export const pplSearchStrategyProvider = (
           return handleEmptyRequest();
         }
 
+        const requestParams = parseRequest(request.body.query);
+
+        request.body.query = requestParams.search;
         const rawResponse: any = await pplFacet.describeQuery(request);
-        const query: string = request.body.query;
-        const source = query.substring(query.indexOf('search source=') + 14, query.indexOf('|'));
-        const fields = query.substring(query.indexOf('fields') + 7).split(',');
+        const source = requestParams.map.get('search source');
+        const fields = requestParams.map.has('fields')
+          ? requestParams.map.get('fields')!.split(',')
+          : [];
 
         const response = rawResponse.data.datarows.map((hit: any) => {
           return {
@@ -94,7 +130,7 @@ export const pplSearchStrategyProvider = (
 
         // The above query will either complete or timeout and throw an error.
         // There is no progress indication on this api.
-        return {
+        const searchResponse = {
           success: true,
           isPartial: false,
           isRunning: false,
@@ -111,10 +147,33 @@ export const pplSearchStrategyProvider = (
               hits: response,
             },
           },
-          total: rawResponse.data.total,
-          loaded: rawResponse.data.size,
+          total: 1,
+          loaded: 1,
           withLongNumeralsSupport: withLongNumeralsSupport ?? false,
         } as any;
+
+        if (requestParams.aggs) {
+          request.body.query = requestParams.aggs;
+          const rawAggs: any = await pplFacet.describeQuery(request);
+
+          let totalDocs = 0;
+          searchResponse.rawResponse.aggregations = {
+            2: {
+              buckets: rawAggs.data.datarows.map((hit: any) => {
+                totalDocs += hit[0];
+                return {
+                  key_as_string: hit[1],
+                  key: new Date(hit[1]).getTime(),
+                  doc_count: hit[0],
+                };
+              }),
+            },
+          };
+
+          searchResponse.rawResponse.hits.total = totalDocs;
+        }
+
+        return searchResponse;
       } catch (e) {
         if (usage) usage.trackError();
 
