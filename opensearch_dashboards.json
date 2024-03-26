@@ -4,6 +4,7 @@
   "opensearchDashboardsVersion": "opensearchDashboards",
   "server": true,
   "ui": true,
-  "requiredPlugins": ["data", "navigation"],
-  "optionalPlugins": []
+  "requiredPlugins": ["data"],
+  "optionalPlugins": [],
+  "requiredBundles": []
 }

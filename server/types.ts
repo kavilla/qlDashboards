@@ -1,10 +1,14 @@
-import { DataPluginSetup } from "src/plugins/data/server/plugin";
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { DataPluginSetup } from 'src/plugins/data/server/plugin';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface QlDashboardsPluginSetup {}
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface QlDashboardsPluginStart {}
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface QlDashboardsPluginSetupDependencies {
   data: DataPluginSetup;
 }

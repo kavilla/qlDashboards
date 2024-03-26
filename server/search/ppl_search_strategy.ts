@@ -75,6 +75,16 @@ export const pplSearchStrategyProvider = (
     };
   };
 
+  const getFields = async (source: string) => {
+    const rawHead: any = await pplFacet.describeQuery({
+      body: {
+        format: 'jdbc',
+        query: `search source=${source} | head 1`,
+      },
+    });
+    return rawHead.data.schema.map((field: any) => field.name);
+  };
+
   return {
     search: async (context, request: any, options) => {
       const config = await config$.pipe(first()).toPromise();
@@ -114,7 +124,7 @@ export const pplSearchStrategyProvider = (
         const source = requestParams.map.get('search source');
         const fields = requestParams.map.has('fields')
           ? requestParams.map.get('fields')!.split(',')
-          : [];
+          : await getFields(source!);
 
         const response = rawResponse.data.datarows.map((hit: any) => {
           return {

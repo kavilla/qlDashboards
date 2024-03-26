@@ -12,5 +12,5 @@
     "server/**/*.ts",
     "../../typings/**/*"
   ],
-  "exclude": []
+  "exclude": [],
 }

@@ -1,4 +1,4 @@
-import { DataPublicPluginSetup } from 'src/plugins/data/public';
+import { DataPublicPluginSetup, DataPublicPluginStart } from 'src/plugins/data/public';
 import { NavigationPublicPluginStart } from '../../../src/plugins/navigation/public';
 
 export interface QlDashboardsPluginSetup {
@@ -13,4 +13,5 @@ export interface QlDashboardsPluginSetupDependencies {
 
 export interface QlDashboardsPluginStartDependencies {
   navigation: NavigationPublicPluginStart;
+  data: DataPublicPluginStart;
 }
