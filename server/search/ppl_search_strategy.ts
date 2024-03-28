@@ -14,6 +14,7 @@ import {
   createDataFrame,
 } from '../../../../src/plugins/data/common';
 import { PPLFacet } from './ppl_facet';
+import { formatDate } from './utils';
 
 export const pplSearchStrategyProvider = (
   config$: Observable<SharedGlobalConfig>,
@@ -55,16 +56,6 @@ export const pplSearchStrategyProvider = (
     };
   };
 
-  const getFields = async (source: string) => {
-    const rawHead: any = await pplFacet.describeQuery({
-      body: {
-        format: 'jdbc',
-        query: `search source=${source} | head 1`,
-      },
-    });
-    return rawHead.data.schema.map((field: any) => field.name);
-  };
-
   return {
     search: async (context, request: any, options) => {
       const config = await config$.pipe(first()).toPromise();
@@ -96,6 +87,9 @@ export const pplSearchStrategyProvider = (
         const dataFrame = createDataFrame(partial);
         dataFrame.fields.forEach((field, index) => {
           field.values = rawResponse.data.datarows.map((row: any) => row[index]);
+          if (field.type === 'date') {
+            field.format = { convert: (value: any) => formatDate(value) };
+          }
         });
 
         dataFrame.size = rawResponse.data.datarows.length;
@@ -119,7 +113,7 @@ export const pplSearchStrategyProvider = (
           took: rawResponse.took,
         } as IDataFrameResponse;
       } catch (e) {
-        logger.info(`Error in pplSearchStrategy: ${e.message}`);
+        logger.error(`pplSearchStrategy: ${e.message}`);
         if (usage) usage.trackError();
         throw e;
       }

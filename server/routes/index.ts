@@ -21,8 +21,11 @@ export function defineRoutes(
       path: `/api/ql/search`,
       validate: {
         body: schema.object({
-          query: schema.string(),
-          format: schema.string(),
+          query: schema.object({
+            qs: schema.string(),
+            format: schema.string(),
+          }),
+          df: schema.nullable(schema.object({})),
         }),
       },
     },

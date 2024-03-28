@@ -1,4 +1,4 @@
-import { get, trimEnd, debounce } from 'lodash';
+import { trimEnd } from 'lodash';
 import { Observable, from } from 'rxjs';
 import { stringify } from '@osd/std';
 import {
@@ -22,23 +22,6 @@ export class QlSearchInterceptor extends SearchInterceptor {
     });
   }
 
-  private formatDate(dateString: string) {
-    const date = new Date(dateString);
-    return (
-      date.getFullYear() +
-      '-' +
-      ('0' + (date.getMonth() + 1)).slice(-2) +
-      '-' +
-      ('0' + date.getDate()).slice(-2) +
-      ' ' +
-      ('0' + date.getHours()).slice(-2) +
-      ':' +
-      ('0' + date.getMinutes()).slice(-2) +
-      ':' +
-      ('0' + date.getSeconds()).slice(-2)
-    );
-  }
-
   protected runSearch(
     request: IOpenSearchDashboardsSearchRequest,
     signal?: AbortSignal
@@ -47,6 +30,7 @@ export class QlSearchInterceptor extends SearchInterceptor {
     const path = trimEnd('/api/ql/search');
 
     const { filterManager, timefilter } = this.queryService;
+    // console.log('params', searchRequest.params);
     // TODO: get timestamp field
     // TODO: disable relative time
     // TODO: calc_auto_interval for auto
@@ -55,14 +39,14 @@ export class QlSearchInterceptor extends SearchInterceptor {
     // TODO: inspect request adapter
     // TODO: query parser in service to invoke preflight
     // TODO: bank on created index pattern but create temporary index pattern
-    const queryString = `${
-      searchRequest.params.body.query[0].query
-    } | where timestamp >= '${this.formatDate(
-      timefilter.timefilter.getTime().from
-    )}' and timestamp <= '${this.formatDate(timefilter.timefilter.getTime().to)}'`;
+    // const queryString = `${
+    //   searchRequest.params.body.query[0].query
+    // } | where timestamp >= '${this.formatDate(
+    //   timefilter.timefilter.getTime().from
+    // )}' and timestamp <= '${this.formatDate(timefilter.timefilter.getTime().to)}'`;
 
-    const body = stringify({ query: queryString, format: 'jdbc' });
-
+    const queryString = searchRequest.params.body.query[0].query;
+    const body = stringify({ query: { qs: queryString, format: 'jdbc' }, df: null });
     return from(
       this.deps.http.fetch({
         method: 'POST',
