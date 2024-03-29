@@ -14,7 +14,6 @@ import {
   createDataFrame,
 } from '../../../../src/plugins/data/common';
 import { PPLFacet } from './ppl_facet';
-import { formatDate } from './utils';
 
 export const pplSearchStrategyProvider = (
   config$: Observable<SharedGlobalConfig>,
@@ -74,7 +73,7 @@ export const pplSearchStrategyProvider = (
         //   return handleEmptyRequest();
         // }
 
-        const requestParams = parseRequest(request.body.query);
+        const requestParams = parseRequest(request.body.query.qs);
 
         request.body.query = requestParams.search;
         const rawResponse: any = await pplFacet.describeQuery(request);
@@ -87,9 +86,12 @@ export const pplSearchStrategyProvider = (
         const dataFrame = createDataFrame(partial);
         dataFrame.fields.forEach((field, index) => {
           field.values = rawResponse.data.datarows.map((row: any) => row[index]);
-          if (field.type === 'date') {
-            field.format = { convert: (value: any) => formatDate(value) };
-          }
+          // logger.info(`field: ${field.name} type: ${field.type} format: ${field.format}`);
+          // TODO: create instance of DataFrame instead of IDataeFrame with constructor
+          // if (field.type === 'date') {
+          //   field.format.convert = (value: any) => formatDate(value);
+          //   logger.info(`field format: ${field.format}`);
+          // }
         });
 
         dataFrame.size = rawResponse.data.datarows.length;

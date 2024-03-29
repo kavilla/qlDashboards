@@ -1,6 +1,7 @@
 import { trimEnd } from 'lodash';
 import { Observable, from } from 'rxjs';
 import { stringify } from '@osd/std';
+import { formatFieldValue, getTimeField } from '../../../../src/plugins/data/common';
 import {
   DataPublicPluginStart,
   IOpenSearchDashboardsSearchRequest,
@@ -9,6 +10,7 @@ import {
   SearchInterceptor,
   SearchInterceptorDeps,
 } from '../../../../src/plugins/data/public';
+import { formatDate } from '../../common';
 import { QlDashboardsPluginStartDependencies } from '../types';
 
 export class QlSearchInterceptor extends SearchInterceptor {
@@ -39,14 +41,19 @@ export class QlSearchInterceptor extends SearchInterceptor {
     // TODO: inspect request adapter
     // TODO: query parser in service to invoke preflight
     // TODO: bank on created index pattern but create temporary index pattern
-    // const queryString = `${
-    //   searchRequest.params.body.query[0].query
-    // } | where timestamp >= '${this.formatDate(
-    //   timefilter.timefilter.getTime().from
-    // )}' and timestamp <= '${this.formatDate(timefilter.timefilter.getTime().to)}'`;
+    const dataFrame = searchRequest.params.body.df;
+    let queryString = searchRequest.params.body.query[0].query;
+    if (dataFrame) {
+      const timeField = getTimeField(dataFrame);
+      // const formattedFrom = formatFieldValue(timeField!, timefilter.timefilter.getTime().from);
+      // const formattedTo = formatFieldValue(timeField!, timefilter.timefilter.getTime().to);
+      const formattedFrom = formatDate(timefilter.timefilter.getTime().from);
+      const formattedTo = formatDate(timefilter.timefilter.getTime().to);
+      queryString = `${queryString} | where  ${timeField?.name} >= '${formattedFrom}' and ${timeField?.name} <= '${formattedTo}'`;
+    }
 
-    const queryString = searchRequest.params.body.query[0].query;
-    const body = stringify({ query: { qs: queryString, format: 'jdbc' }, df: null });
+    const body = stringify({ query: { qs: queryString, format: 'jdbc' }, df: dataFrame ?? null });
+
     return from(
       this.deps.http.fetch({
         method: 'POST',

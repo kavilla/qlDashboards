@@ -25,7 +25,7 @@ export function defineRoutes(
             qs: schema.string(),
             format: schema.string(),
           }),
-          df: schema.nullable(schema.object({})),
+          df: schema.nullable(schema.object({}, { unknowns: 'allow' })),
         }),
       },
     },
