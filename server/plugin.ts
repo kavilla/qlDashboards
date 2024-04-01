@@ -14,7 +14,6 @@ import {
   QlDashboardsPluginStart,
 } from './types';
 import { defineRoutes } from './routes';
-import { PPLFacet } from './search/ppl_facet';
 import { PPLPlugin } from './search/ppl_plugin';
 import { EnginePlugin } from './search/engine_plugin';
 import { PPL_SEARCH_STRATEGY } from '../common';

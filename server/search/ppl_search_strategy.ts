@@ -86,12 +86,6 @@ export const pplSearchStrategyProvider = (
         const dataFrame = createDataFrame(partial);
         dataFrame.fields.forEach((field, index) => {
           field.values = rawResponse.data.datarows.map((row: any) => row[index]);
-          // logger.info(`field: ${field.name} type: ${field.type} format: ${field.format}`);
-          // TODO: create instance of DataFrame instead of IDataeFrame with constructor
-          // if (field.type === 'date') {
-          //   field.format.convert = (value: any) => formatDate(value);
-          //   logger.info(`field format: ${field.format}`);
-          // }
         });
 
         dataFrame.size = rawResponse.data.datarows.length;
