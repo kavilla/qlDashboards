@@ -69,10 +69,6 @@ export const pplSearchStrategyProvider = (
       // });
 
       try {
-        // if (!request.body.query) {
-        //   return handleEmptyRequest();
-        // }
-
         const requestParams = parseRequest(request.body.query.qs);
 
         request.body.query = requestParams.search;
