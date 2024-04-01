@@ -1,6 +1,7 @@
-import { get, trimEnd, debounce } from 'lodash';
+import { trimEnd } from 'lodash';
 import { Observable, from } from 'rxjs';
 import { stringify } from '@osd/std';
+import { getTimeField } from '../../../../src/plugins/data/common';
 import {
   DataPublicPluginStart,
   IOpenSearchDashboardsSearchRequest,
@@ -9,59 +10,56 @@ import {
   SearchInterceptor,
   SearchInterceptorDeps,
 } from '../../../../src/plugins/data/public';
+import { formatDate, PPL_SEARCH_STRATEGY } from '../../common';
 import { QlDashboardsPluginStartDependencies } from '../types';
 
 export class QlSearchInterceptor extends SearchInterceptor {
   protected queryService!: DataPublicPluginStart['query'];
+  protected aggsService!: DataPublicPluginStart['search']['aggs'];
 
   constructor(deps: SearchInterceptorDeps) {
     super(deps);
 
     deps.startServices.then(([coreStart, depsStart]) => {
       this.queryService = (depsStart as QlDashboardsPluginStartDependencies).data.query;
+      this.aggsService = (depsStart as QlDashboardsPluginStartDependencies).data.search.aggs;
     });
-  }
-
-  private formatDate(dateString: string) {
-    const date = new Date(dateString);
-    return (
-      date.getFullYear() +
-      '-' +
-      ('0' + (date.getMonth() + 1)).slice(-2) +
-      '-' +
-      ('0' + date.getDate()).slice(-2) +
-      ' ' +
-      ('0' + date.getHours()).slice(-2) +
-      ':' +
-      ('0' + date.getMinutes()).slice(-2) +
-      ':' +
-      ('0' + date.getSeconds()).slice(-2)
-    );
   }
 
   protected runSearch(
     request: IOpenSearchDashboardsSearchRequest,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    strategy?: string
   ): Observable<IOpenSearchDashboardsSearchResponse> {
     const { id, ...searchRequest } = request;
     const path = trimEnd('/api/ql/search');
 
     const { filterManager, timefilter } = this.queryService;
-    // TODO: get timestamp field
-    // TODO: disable relative time
-    // TODO: calc_auto_interval for auto
-    // TODO: pass interval to query if not auto
-    // TODO: what to do with filters here?
     // TODO: inspect request adapter
     // TODO: query parser in service to invoke preflight
     // TODO: bank on created index pattern but create temporary index pattern
-    const queryString = `${
-      searchRequest.params.body.query[0].query
-    } | where timestamp >= '${this.formatDate(
-      timefilter.timefilter.getTime().from
-    )}' and timestamp <= '${this.formatDate(timefilter.timefilter.getTime().to)}'`;
+    const dataFrame = searchRequest.params.body.df;
+    let queryString = searchRequest.params.body.query.queries[0].query;
+    if (dataFrame) {
+      const timeField = getTimeField(dataFrame);
 
-    const body = stringify({ query: queryString, format: 'jdbc' });
+      const fromDate = timefilter.timefilter.getTime().from;
+      const toDate = timefilter.timefilter.getTime().to;
+
+      const auto = this.aggsService.calculateAutoTimeExpression({
+        from: fromDate,
+        to: toDate,
+        mode: 'absolute',
+      });
+
+      queryString = `${queryString} | stats count() by span(${timeField?.name}, ${auto})`;
+
+      queryString = `${queryString} | where  ${timeField?.name} >= '${formatDate(fromDate)}' and ${
+        timeField?.name
+      } <= '${formatDate(toDate)}'`;
+    }
+
+    const body = stringify({ query: { qs: queryString, format: 'jdbc' }, df: dataFrame ?? null });
 
     return from(
       this.deps.http.fetch({
@@ -74,6 +72,6 @@ export class QlSearchInterceptor extends SearchInterceptor {
   }
 
   public search(request: IOpenSearchDashboardsSearchRequest, options: ISearchOptions) {
-    return this.runSearch(request, options.abortSignal);
+    return this.runSearch(request, options.abortSignal, PPL_SEARCH_STRATEGY);
   }
 }

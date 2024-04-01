@@ -1,47 +1,27 @@
 import { first } from 'rxjs/operators';
 import { SharedGlobalConfig, Logger, ILegacyClusterClient } from 'opensearch-dashboards/server';
 import { Observable } from 'rxjs';
-import { DataSourcePluginSetup } from 'src/plugins/data_source/server';
 import {
   ISearchStrategy,
   getDefaultSearchParams,
   SearchUsage,
 } from '../../../../src/plugins/data/server';
+import {
+  IDataFrameResponse,
+  IDataFrameWithAggs,
+  IOpenSearchDashboardsSearchRequest,
+  PartialDataFrame,
+  createDataFrame,
+} from '../../../../src/plugins/data/common';
 import { PPLFacet } from './ppl_facet';
 
 export const pplSearchStrategyProvider = (
   config$: Observable<SharedGlobalConfig>,
   logger: Logger,
   client: ILegacyClusterClient,
-  usage?: SearchUsage,
-  dataSource?: DataSourcePluginSetup,
-  withLongNumeralsSupport?: boolean
-): ISearchStrategy => {
+  usage?: SearchUsage
+): ISearchStrategy<IOpenSearchDashboardsSearchRequest, IDataFrameResponse> => {
   const pplFacet = new PPLFacet(client);
-
-  const handleEmptyRequest = () => {
-    return {
-      success: true,
-      isPartial: false,
-      isRunning: false,
-      rawResponse: {
-        took: 0,
-        timed_out: false,
-        _shards: {
-          total: 1,
-          successful: 1,
-          skipped: 0,
-          failed: 0,
-        },
-        hits: {
-          hits: [],
-        },
-      },
-      total: 0,
-      loaded: 0,
-      withLongNumeralsSupport: withLongNumeralsSupport ?? false,
-    };
-  };
 
   // search source=opensearch_dashboards_sample_data_logs| fields agent,bytes,timestamp,clientip | stats count() by span(timestamp, 12h) | where timestamp >= '2024-02-02 16:00:00.000000' and timestamp <= '2024-03-15 16:49:13.456000'
 
@@ -75,26 +55,10 @@ export const pplSearchStrategyProvider = (
     };
   };
 
-  const getFields = async (source: string) => {
-    const rawHead: any = await pplFacet.describeQuery({
-      body: {
-        format: 'jdbc',
-        query: `search source=${source} | head 1`,
-      },
-    });
-    return rawHead.data.schema.map((field: any) => field.name);
-  };
-
   return {
     search: async (context, request: any, options) => {
       const config = await config$.pipe(first()).toPromise();
       const uiSettingsClient = await context.core.uiSettings.client;
-
-      // Only default index pattern type is supported here.
-      // See data_enhanced for other type support.
-      if (!!request.indexType) {
-        throw new Error(`Unsupported index pattern type ${request.indexType}`);
-      }
 
       // ignoreThrottled is not supported in OSS
       const { ignoreThrottled, ...defaultParams } = await getDefaultSearchParams(uiSettingsClient);
@@ -105,91 +69,44 @@ export const pplSearchStrategyProvider = (
       // });
 
       try {
-        if (
-          dataSource?.dataSourceEnabled() &&
-          !dataSource?.defaultClusterEnabled() &&
-          !request.dataSourceId
-        ) {
-          throw new Error(`Data source id is required when no openseach hosts config provided`);
-        }
-
-        if (!request.body.query) {
-          return handleEmptyRequest();
-        }
-
-        const requestParams = parseRequest(request.body.query);
+        const requestParams = parseRequest(request.body.query.qs);
 
         request.body.query = requestParams.search;
         const rawResponse: any = await pplFacet.describeQuery(request);
         const source = requestParams.map.get('search source');
-        const fields = requestParams.map.has('fields')
-          ? requestParams.map.get('fields')!.split(',')
-          : await getFields(source!);
 
-        const response = rawResponse.data.datarows.map((hit: any) => {
-          return {
-            _index: source,
-            _source: fields.reduce((obj: any, field: string, index: number) => {
-              obj[field] = hit[index];
-              return obj;
-            }, {}),
-          };
+        const partial: PartialDataFrame = {
+          name: source,
+          fields: rawResponse.data.schema,
+        };
+        const dataFrame = createDataFrame(partial);
+        dataFrame.fields.forEach((field, index) => {
+          field.values = rawResponse.data.datarows.map((row: any) => row[index]);
         });
 
-        // if (usage) usage.trackSuccess(rawResponse.took);
+        dataFrame.size = rawResponse.data.datarows.length;
 
-        // The above query will either complete or timeout and throw an error.
-        // There is no progress indication on this api.
-        const searchResponse = {
-          success: true,
-          isPartial: false,
-          isRunning: false,
-          rawResponse: {
-            took: 0,
-            timed_out: false,
-            _shards: {
-              total: 1,
-              successful: 1,
-              skipped: 0,
-              failed: 0,
-            },
-            hits: {
-              hits: response,
-            },
-          },
-          total: 1,
-          loaded: 1,
-          withLongNumeralsSupport: withLongNumeralsSupport ?? false,
-        } as any;
+        if (usage) usage.trackSuccess(rawResponse.took);
 
         if (requestParams.aggs) {
           request.body.query = requestParams.aggs;
           const rawAggs: any = await pplFacet.describeQuery(request);
-
-          let totalDocs = 0;
-          searchResponse.rawResponse.aggregations = {
-            2: {
-              buckets: rawAggs.data.datarows.map((hit: any) => {
-                totalDocs += hit[0];
-                return {
-                  key_as_string: hit[1],
-                  key: new Date(hit[1]).getTime(),
-                  doc_count: hit[0],
-                };
-              }),
-            },
-          };
-
-          searchResponse.rawResponse.hits.total = totalDocs;
+          (dataFrame as IDataFrameWithAggs).aggs = rawAggs.data.datarows.map((hit: any) => {
+            return {
+              key: hit[1],
+              value: hit[0],
+            };
+          });
         }
 
-        return searchResponse;
+        return {
+          type: 'data_frame',
+          body: dataFrame,
+          took: rawResponse.took,
+        } as IDataFrameResponse;
       } catch (e) {
+        logger.error(`pplSearchStrategy: ${e.message}`);
         if (usage) usage.trackError();
-
-        if (dataSource?.dataSourceEnabled()) {
-          throw dataSource.createDataSourceError(e);
-        }
         throw e;
       }
     },

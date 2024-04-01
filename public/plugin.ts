@@ -39,7 +39,11 @@ export class QlDashboardsPlugin
 
     data.__enhance({
       ui: {
-        query: { language: 'PPL', search: searchInterceptor },
+        query: {
+          language: 'PPL',
+          search: searchInterceptor,
+          input: { placeholder: 'search source=', submitOnLanguageSelect: false },
+        },
       },
     });
 
