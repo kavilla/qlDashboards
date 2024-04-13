@@ -2,6 +2,7 @@ export const PLUGIN_ID = 'qlDashboards';
 export const PLUGIN_NAME = 'qlDashboards';
 
 export const PPL_SEARCH_STRATEGY = 'ppl';
+export const SQL_SEARCH_STRATEGY = 'sql';
 
 export const PPL_ENDPOINT = '/_plugins/_ppl';
 export const SQL_ENDPOINT = '/_plugins/_sql';

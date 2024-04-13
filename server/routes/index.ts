@@ -14,7 +14,10 @@ import {
 export function defineRoutes(
   logger: Logger,
   router: IRouter,
-  searchStrategy: ISearchStrategy<IOpenSearchDashboardsSearchRequest, IDataFrameResponse>
+  searchStrategies: Record<
+    string,
+    ISearchStrategy<IOpenSearchDashboardsSearchRequest, IDataFrameResponse>
+  >
 ) {
   router.post(
     {
@@ -31,7 +34,48 @@ export function defineRoutes(
     },
     async (context, req, res): Promise<IOpenSearchDashboardsResponse<any | ResponseError>> => {
       try {
-        const queryRes: IDataFrameResponse = await searchStrategy.search(context, req as any, {});
+        const queryRes: IDataFrameResponse = await searchStrategies.ppl.search(
+          context,
+          req as any,
+          {}
+        );
+        const result: any = {
+          body: {
+            ...queryRes,
+          },
+        };
+        return res.ok(result);
+      } catch (err) {
+        logger.error(err);
+        return res.custom({
+          statusCode: 500,
+          body: err,
+        });
+      }
+    }
+  );
+
+  // sql
+  router.post(
+    {
+      path: `/api/sqlql/search`,
+      validate: {
+        body: schema.object({
+          query: schema.object({
+            qs: schema.string(),
+            format: schema.string(),
+          }),
+          df: schema.nullable(schema.object({}, { unknowns: 'allow' })),
+        }),
+      },
+    },
+    async (context, req, res): Promise<IOpenSearchDashboardsResponse<any | ResponseError>> => {
+      try {
+        const queryRes: IDataFrameResponse = await searchStrategies.sql.search(
+          context,
+          req as any,
+          {}
+        );
         const result: any = {
           body: {
             ...queryRes,
