@@ -51,7 +51,9 @@ export class QlDashboardsPlugin
         query: {
           language: 'PPL',
           search: searchInterceptor,
-          input: { placeholder: 'search source=', submitOnLanguageSelect: false },
+          ui: {
+            queryStringInput: { initialValue: 'search source=<data_source>' },
+          },
         },
       },
     });
@@ -61,10 +63,10 @@ export class QlDashboardsPlugin
         query: {
           language: 'SQL',
           search: sqlSearchInterceptor,
-          input: { placeholder: '', submitOnLanguageSelect: false },
           ui: {
             showDatePicker: false,
             showFilterBar: false,
+            queryStringInput: { initialValue: 'SELECT * FROM <data_source>' },
           },
         },
       },
