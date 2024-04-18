@@ -62,6 +62,10 @@ export class QlDashboardsPlugin
           language: 'SQL',
           search: sqlSearchInterceptor,
           input: { placeholder: '', submitOnLanguageSelect: false },
+          ui: {
+            showDatePicker: false,
+            showFilterBar: false,
+          },
         },
       },
     });
