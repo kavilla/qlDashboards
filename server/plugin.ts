@@ -16,8 +16,9 @@ import {
 import { defineRoutes } from './routes';
 import { PPLPlugin } from './search/ppl_plugin';
 import { EnginePlugin } from './search/engine_plugin';
-import { PPL_SEARCH_STRATEGY } from '../common';
+import { PPL_SEARCH_STRATEGY, SQL_SEARCH_STRATEGY } from '../common';
 import { pplSearchStrategyProvider } from './search/ppl_search_strategy';
+import { sqlSearchStrategyProvider } from './search/sql/sql_search_strategy';
 
 export class QlDashboardsPlugin
   implements Plugin<QlDashboardsPluginSetup, QlDashboardsPluginStart> {
@@ -38,9 +39,12 @@ export class QlDashboardsPlugin
     });
 
     const searchStrategy = pplSearchStrategyProvider(this.config$, this.logger, client);
-    data.search.registerSearchStrategy(PPL_SEARCH_STRATEGY, searchStrategy);
+    const sqlSearchStrategy = sqlSearchStrategyProvider(this.config$, this.logger, client);
 
-    defineRoutes(this.logger, router, searchStrategy);
+    data.search.registerSearchStrategy(PPL_SEARCH_STRATEGY, searchStrategy);
+    data.search.registerSearchStrategy(SQL_SEARCH_STRATEGY, sqlSearchStrategy);
+
+    defineRoutes(this.logger, router, { ppl: searchStrategy, sql: sqlSearchStrategy });
 
     this.logger.info('qlDashboards: Setup complete');
     return {};

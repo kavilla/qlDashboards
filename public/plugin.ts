@@ -8,6 +8,7 @@ import {
 } from './types';
 import { PLUGIN_NAME } from '../common';
 import { QlSearchInterceptor } from './search/search_interceptor';
+import { SQLQlSearchInterceptor } from './search/sql_search_interceptor';
 
 export class QlDashboardsPlugin
   implements Plugin<QlDashboardsPluginSetup, QlDashboardsPluginStart> {
@@ -37,12 +38,30 @@ export class QlDashboardsPlugin
       usageCollector: data.search.usageCollector,
     });
 
+    const sqlSearchInterceptor = new SQLQlSearchInterceptor({
+      toasts: core.notifications.toasts,
+      http: core.http,
+      uiSettings: core.uiSettings,
+      startServices: core.getStartServices(),
+      usageCollector: data.search.usageCollector,
+    });
+
     data.__enhance({
       ui: {
         query: {
           language: 'PPL',
           search: searchInterceptor,
           input: { placeholder: 'search source=', submitOnLanguageSelect: false },
+        },
+      },
+    });
+
+    data.__enhance({
+      ui: {
+        query: {
+          language: 'SQL',
+          search: sqlSearchInterceptor,
+          input: { placeholder: '', submitOnLanguageSelect: false },
         },
       },
     });
