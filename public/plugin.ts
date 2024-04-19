@@ -51,7 +51,7 @@ export class QlDashboardsPlugin
         query: {
           language: 'PPL',
           search: searchInterceptor,
-          ui: {
+          searchBar: {
             queryStringInput: { initialValue: 'search source=<data_source>' },
           },
         },
@@ -63,7 +63,7 @@ export class QlDashboardsPlugin
         query: {
           language: 'SQL',
           search: sqlSearchInterceptor,
-          ui: {
+          searchBar: {
             showDatePicker: false,
             showFilterBar: false,
             queryStringInput: { initialValue: 'SELECT * FROM <data_source>' },
