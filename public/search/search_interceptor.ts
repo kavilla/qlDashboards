@@ -1,7 +1,8 @@
 import { trimEnd } from 'lodash';
 import { Observable, from } from 'rxjs';
 import { stringify } from '@osd/std';
-import { getTimeField } from '../../../../src/plugins/data/common';
+import { concatMap } from 'rxjs/operators';
+import { getRawQueryString, getTimeField } from '../../../../src/plugins/data/common';
 import {
   DataPublicPluginStart,
   IOpenSearchDashboardsSearchRequest,
@@ -33,42 +34,56 @@ export class QlSearchInterceptor extends SearchInterceptor {
   ): Observable<IOpenSearchDashboardsSearchResponse> {
     const { id, ...searchRequest } = request;
     const path = trimEnd('/api/ql/search');
-
     const { filterManager, timefilter } = this.queryService;
-    // TODO: inspect request adapter
-    // TODO: query parser in service to invoke preflight
-    // TODO: bank on created index pattern but create temporary index pattern
-    const dataFrame = searchRequest.params.body.df;
-    let queryString = searchRequest.params.body.query.queries[0].query;
-    if (dataFrame) {
-      const timeField = getTimeField(dataFrame);
+    const fromDate = timefilter.timefilter.getTime().from;
+    const toDate = timefilter.timefilter.getTime().to;
 
-      const fromDate = timefilter.timefilter.getTime().from;
-      const toDate = timefilter.timefilter.getTime().to;
+    const fetchDataFrame = (queryString: string, df = null) => {
+      const body = stringify({ query: { qs: queryString, format: 'jdbc' }, df });
+      return from(
+        this.deps.http.fetch({
+          method: 'POST',
+          path,
+          body,
+          signal,
+        })
+      );
+    };
 
+    const getTimeFilter = (timeField: any) => {
       const auto = this.aggsService.calculateAutoTimeExpression({
         from: fromDate,
         to: toDate,
         mode: 'absolute',
       });
 
-      queryString = `${queryString} | stats count() by span(${timeField?.name}, ${auto})`;
-
-      queryString = `${queryString} | where  ${timeField?.name} >= '${formatDate(fromDate)}' and ${
+      return ` | stats count() by span(${timeField?.name}, ${auto}) | where ${
         timeField?.name
-      } <= '${formatDate(toDate)}'`;
+      } >= '${formatDate(fromDate)}' and ${timeField?.name} <= '${formatDate(toDate)}'`;
+    };
+    // TODO: inspect request adapter
+    // TODO: query parser in service to invoke preflight
+    // TODO: bank on created index pattern but create temporary index pattern
+    let queryString = getRawQueryString(searchRequest) ?? '';
+    const dataFrame = searchRequest.params.body.df;
+
+    if (!dataFrame) {
+      return fetchDataFrame(queryString).pipe(
+        concatMap((response) => {
+          const df = response.body;
+          const timeField = getTimeField(df);
+          queryString += getTimeFilter(timeField);
+          return fetchDataFrame(queryString, df);
+        })
+      );
     }
 
-    const body = stringify({ query: { qs: queryString, format: 'jdbc' }, df: dataFrame ?? null });
+    if (dataFrame) {
+      const timeField = getTimeField(dataFrame);
+      queryString += getTimeFilter(timeField);
+    }
 
-    return from(
-      this.deps.http.fetch({
-        method: 'POST',
-        path,
-        body,
-        signal,
-      })
-    );
+    return fetchDataFrame(queryString, dataFrame);
   }
 
   public search(request: IOpenSearchDashboardsSearchRequest, options: ISearchOptions) {

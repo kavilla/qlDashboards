@@ -10,7 +10,6 @@ import {
   IDataFrameResponse,
   IDataFrameWithAggs,
   IOpenSearchDashboardsSearchRequest,
-  PartialDataFrame,
   createDataFrame,
 } from '../../../../src/plugins/data/common';
 import { PPLFacet } from './ppl_facet';
@@ -75,13 +74,12 @@ export const pplSearchStrategyProvider = (
         const rawResponse: any = await pplFacet.describeQuery(request);
         const source = requestParams.map.get('search source');
 
-        const partial: PartialDataFrame = {
+        const dataFrame = createDataFrame({
           name: source,
-          fields: rawResponse.data.schema,
-        };
-        const dataFrame = createDataFrame(partial);
-        dataFrame.fields.forEach((field, index) => {
-          field.values = rawResponse.data.datarows.map((row: any) => row[index]);
+          fields: rawResponse.data.schema.map((field: any, index: any) => ({
+            ...field,
+            values: rawResponse.data.datarows.map((row: any) => row[index]),
+          })),
         });
 
         dataFrame.size = rawResponse.data.datarows.length;
