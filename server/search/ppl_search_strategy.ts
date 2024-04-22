@@ -59,8 +59,9 @@ export const pplSearchStrategyProvider = (
       const config = await config$.pipe(first()).toPromise();
       const uiSettingsClient = await context.core.uiSettings.client;
 
-      // ignoreThrottled is not supported in OSS
-      const { ignoreThrottled, ...defaultParams } = await getDefaultSearchParams(uiSettingsClient);
+      const { dataFrameHydrationStrategy, ...defaultParams } = await getDefaultSearchParams(
+        uiSettingsClient
+      );
 
       // const params = toSnakeCase({
       //   ...defaultParams,
@@ -69,13 +70,19 @@ export const pplSearchStrategyProvider = (
 
       try {
         const requestParams = parseRequest(request.body.query.qs);
-
+        const source = requestParams.map.get('search source');
+        let schema = request.body.df?.schema;
+        if (!schema || dataFrameHydrationStrategy === 'perQuery') {
+          request.body.query = `search source=${source}`;
+          const schemaRawResponse: any = await pplFacet.describeQuery(request);
+          schema = schemaRawResponse.data.schema;
+        }
         request.body.query = requestParams.search;
         const rawResponse: any = await pplFacet.describeQuery(request);
-        const source = requestParams.map.get('search source');
 
         const dataFrame = createDataFrame({
           name: source,
+          schema,
           fields: rawResponse.data.schema.map((field: any, index: any) => ({
             ...field,
             values: rawResponse.data.datarows.map((row: any) => row[index]),
