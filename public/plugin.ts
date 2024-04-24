@@ -9,6 +9,7 @@ import {
 import { PLUGIN_NAME } from '../common';
 import { QlSearchInterceptor } from './search/search_interceptor';
 import { SQLQlSearchInterceptor } from './search/sql_search_interceptor';
+import moment from 'moment';
 
 export class QlDashboardsPlugin
   implements Plugin<QlDashboardsPluginSetup, QlDashboardsPluginStart> {
@@ -53,6 +54,10 @@ export class QlDashboardsPlugin
           search: searchInterceptor,
           searchBar: {
             queryStringInput: { initialValue: 'source=<data_source>' },
+            dateRange: {
+              initialFrom: moment().subtract(30, 'days').toISOString(),
+              initialTo: moment().add(30, 'days').toISOString(),
+            },
           },
         },
       },
