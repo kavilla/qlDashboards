@@ -61,9 +61,7 @@ export class QlSearchInterceptor extends SearchInterceptor {
         timeField?.name
       } >= '${formatDate(fromDate)}' and ${timeField?.name} <= '${formatDate(toDate)}'`;
     };
-    // TODO: inspect request adapter
-    // TODO: query parser in service to invoke preflight
-    // TODO: bank on created index pattern but create temporary index pattern
+
     let queryString = getRawQueryString(searchRequest) ?? '';
     const dataFrame = searchRequest.params.body.df;
 

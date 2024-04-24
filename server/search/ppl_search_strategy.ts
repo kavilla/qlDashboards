@@ -28,27 +28,32 @@ export const pplSearchStrategyProvider = (
     const pipeMap = new Map<string, string>();
     const pipeArray = query.split('|');
     pipeArray.forEach((pipe, index) => {
-      const split = pipe.trim().split(index === 0 ? '=' : ' ');
+      const splitChar = index === 0 ? '=' : ' ';
+      const split = pipe.trim().split(splitChar);
       const key = split[0];
       const value = pipe.replace(index === 0 ? `${key}=` : key, '').trim();
       pipeMap.set(key, value);
     });
 
-    const source = pipeMap.get('search source');
-    const searchQuery = Array.from(pipeMap.entries())
-      .filter(([key]) => key !== 'stats')
-      .map(([key, value]) => (key === 'search source' ? `${key}=${value}` : `${key} ${value}`))
-      .join(' | ');
+    const source = pipeMap.get('source');
+
+    const describeQuery = `describe ${source}`;
+
+    const searchQuery = `${Array.from(pipeMap.entries())
+      .filter(([key]) => key !== 'stats' && key !== 'fields')
+      .map(([key, value]) => (key === 'source' ? `${key}=${value}` : `${key} ${value}`))
+      .join(' | ')} ${pipeMap.has('fields') ? `| fields ${pipeMap.get('fields')}` : ''}`;
 
     const filters = pipeMap.get('where');
 
     const stats = pipeMap.get('stats');
     const aggsQuery = stats
-      ? `search source=${source} ${filters ? `| where ${filters}` : ''} | stats ${stats}`
+      ? `source=${source} ${filters ? `| where ${filters}` : ''} | stats ${stats}`
       : undefined;
 
     return {
       map: pipeMap,
+      describe: describeQuery,
       search: searchQuery,
       aggs: aggsQuery,
     };
@@ -70,10 +75,11 @@ export const pplSearchStrategyProvider = (
 
       try {
         const requestParams = parseRequest(request.body.query.qs);
-        const source = requestParams.map.get('search source');
+        const source = requestParams.map.get('source');
         let schema = request.body.df?.schema;
         if (!schema || dataFrameHydrationStrategy === 'perQuery') {
-          request.body.query = `search source=${source}`;
+          // TODO: add support for describe query
+          request.body.query = `source=${source}`;
           const schemaRawResponse: any = await pplFacet.describeQuery(request);
           schema = schemaRawResponse.data.schema;
         }

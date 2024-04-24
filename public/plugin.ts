@@ -52,7 +52,7 @@ export class QlDashboardsPlugin
           language: 'PPL',
           search: searchInterceptor,
           searchBar: {
-            queryStringInput: { initialValue: 'search source=<data_source>' },
+            queryStringInput: { initialValue: 'source=<data_source>' },
           },
         },
       },
@@ -68,6 +68,11 @@ export class QlDashboardsPlugin
             showFilterBar: false,
             queryStringInput: { initialValue: 'SELECT * FROM <data_source>' },
           },
+          fields: {
+            filterable: false,
+            visualizable: false,
+          },
+          showDocLinks: false,
         },
       },
     });
