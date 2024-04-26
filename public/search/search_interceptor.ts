@@ -62,7 +62,7 @@ export class QlSearchInterceptor extends SearchInterceptor {
     };
 
     const getAggString = (timeField: any, aggsConfig?: DataFrameAggConfig) => {
-      if (!aggsConfig) {
+      if (!aggsConfig || !aggsConfig.interval) {
         return ` | stats count() by span(${
           timeField?.name
         }, ${this.aggsService.calculateAutoTimeExpression({
