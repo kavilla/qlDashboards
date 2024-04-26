@@ -14,3 +14,10 @@ export const formatDate = (dateString: string) => {
     ('0' + date.getSeconds()).slice(-2)
   );
 };
+
+export const getFields = (rawResponse: any) => {
+  return rawResponse.data.schema.map((field: any, index: any) => ({
+    ...field,
+    values: rawResponse.data.datarows.map((row: any) => row[index]),
+  }));
+};

@@ -2,7 +2,12 @@ import { trimEnd } from 'lodash';
 import { Observable, from } from 'rxjs';
 import { stringify } from '@osd/std';
 import { concatMap } from 'rxjs/operators';
-import { getRawQueryString, getTimeField } from '../../../../src/plugins/data/common';
+import {
+  DataFrameAggConfig,
+  getAggConfig,
+  getRawQueryString,
+  getTimeField,
+} from '../../../../src/plugins/data/common';
 import {
   DataPublicPluginStart,
   IOpenSearchDashboardsSearchRequest,
@@ -51,25 +56,40 @@ export class QlSearchInterceptor extends SearchInterceptor {
     };
 
     const getTimeFilter = (timeField: any) => {
-      const auto = this.aggsService.calculateAutoTimeExpression({
-        from: fromDate,
-        to: toDate,
-        mode: 'absolute',
-      });
-
-      return ` | stats count() by span(${timeField?.name}, ${auto}) | where ${
+      return ` | where ${timeField?.name} >= '${formatDate(fromDate)}' and ${
         timeField?.name
-      } >= '${formatDate(fromDate)}' and ${timeField?.name} <= '${formatDate(toDate)}'`;
+      } <= '${formatDate(toDate)}'`;
+    };
+
+    const getAggString = (timeField: any, aggsConfig?: DataFrameAggConfig) => {
+      if (!aggsConfig) {
+        return ` | stats count() by span(${
+          timeField?.name
+        }, ${this.aggsService.calculateAutoTimeExpression({
+          from: fromDate,
+          to: toDate,
+          mode: 'absolute',
+        })})`;
+      }
+
+      if (aggsConfig.name === 'date_histogram') {
+        return ` | stats count() by span(${timeField?.name}, ${aggsConfig.interval})`;
+      }
     };
 
     let queryString = getRawQueryString(searchRequest) ?? '';
     const dataFrame = searchRequest.params.body.df;
+    const aggConfig = getAggConfig(searchRequest);
+    if (aggConfig) {
+      aggConfig.type = this.aggsService.types.get(aggConfig.name)?.type;
+    }
 
     if (!dataFrame) {
       return fetchDataFrame(queryString).pipe(
         concatMap((response) => {
           const df = response.body;
-          const timeField = getTimeField(df);
+          const timeField = getTimeField(df, aggConfig);
+          queryString += getAggString(timeField, aggConfig);
           queryString += getTimeFilter(timeField);
           return fetchDataFrame(queryString, df);
         })
@@ -77,7 +97,8 @@ export class QlSearchInterceptor extends SearchInterceptor {
     }
 
     if (dataFrame) {
-      const timeField = getTimeField(dataFrame);
+      const timeField = getTimeField(dataFrame, aggConfig);
+      queryString += getAggString(timeField, aggConfig);
       queryString += getTimeFilter(timeField);
     }
 

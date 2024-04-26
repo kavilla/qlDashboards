@@ -13,6 +13,7 @@ import {
   createDataFrame,
 } from '../../../../src/plugins/data/common';
 import { PPLFacet } from './ppl_facet';
+import { getFields } from '../../common/utils';
 
 export const pplSearchStrategyProvider = (
   config$: Observable<SharedGlobalConfig>,
@@ -76,23 +77,17 @@ export const pplSearchStrategyProvider = (
       try {
         const requestParams = parseRequest(request.body.query.qs);
         const source = requestParams.map.get('source');
-        let schema = request.body.df?.schema;
-        if (!schema || dataFrameHydrationStrategy === 'perQuery') {
-          // TODO: add support for describe query
-          request.body.query = `source=${source}`;
-          const schemaRawResponse: any = await pplFacet.describeQuery(request);
-          schema = schemaRawResponse.data.schema;
-        }
-        request.body.query = requestParams.search;
+        const schema = request.body.df?.schema;
+        request.body.query =
+          !schema || dataFrameHydrationStrategy === 'perQuery'
+            ? `source=${source} | head`
+            : requestParams.search;
         const rawResponse: any = await pplFacet.describeQuery(request);
 
         const dataFrame = createDataFrame({
           name: source,
-          schema,
-          fields: rawResponse.data.schema.map((field: any, index: any) => ({
-            ...field,
-            values: rawResponse.data.datarows.map((row: any) => row[index]),
-          })),
+          schema: schema ?? rawResponse.data.schema,
+          fields: getFields(rawResponse),
         });
 
         dataFrame.size = rawResponse.data.datarows.length;
