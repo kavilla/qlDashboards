@@ -16,8 +16,12 @@ export const formatDate = (dateString: string) => {
 };
 
 export const getFields = (rawResponse: any) => {
-  return rawResponse.data.schema.map((field: any, index: any) => ({
+  return rawResponse.data.schema?.map((field: any, index: any) => ({
     ...field,
-    values: rawResponse.data.datarows.map((row: any) => row[index]),
+    values: rawResponse.data.datarows?.map((row: any) => row[index]),
   }));
+};
+
+export const removeKeyword = (queryString: string | undefined) => {
+  return queryString?.replace(new RegExp('.keyword'), '') ?? '';
 };

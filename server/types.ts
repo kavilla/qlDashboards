@@ -4,6 +4,7 @@
  */
 
 import { DataPluginSetup } from 'src/plugins/data/server/plugin';
+import { HomeServerPluginSetup } from 'src/plugins/home/server/plugin';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface QlDashboardsPluginSetup {}
@@ -11,6 +12,7 @@ export interface QlDashboardsPluginSetup {}
 export interface QlDashboardsPluginStart {}
 export interface QlDashboardsPluginSetupDependencies {
   data: DataPluginSetup;
+  home?: HomeServerPluginSetup;
 }
 
 export interface ISchema {

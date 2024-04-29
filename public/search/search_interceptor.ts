@@ -5,8 +5,10 @@ import { concatMap } from 'rxjs/operators';
 import {
   DataFrameAggConfig,
   getAggConfig,
+  getRawDataFrame,
   getRawQueryString,
   getTimeField,
+  getUniqueValuesForRawAggs,
 } from '../../../../src/plugins/data/common';
 import {
   DataPublicPluginStart,
@@ -16,7 +18,7 @@ import {
   SearchInterceptor,
   SearchInterceptorDeps,
 } from '../../../../src/plugins/data/public';
-import { formatDate, PPL_SEARCH_STRATEGY } from '../../common';
+import { formatDate, PPL_SEARCH_STRATEGY, removeKeyword } from '../../common';
 import { QlDashboardsPluginStartDependencies } from '../types';
 
 export class QlSearchInterceptor extends SearchInterceptor {
@@ -62,7 +64,7 @@ export class QlSearchInterceptor extends SearchInterceptor {
     };
 
     const getAggString = (timeField: any, aggsConfig?: DataFrameAggConfig) => {
-      if (!aggsConfig || !aggsConfig.interval) {
+      if (!aggsConfig) {
         return ` | stats count() by span(${
           timeField?.name
         }, ${this.aggsService.calculateAutoTimeExpression({
@@ -71,26 +73,81 @@ export class QlSearchInterceptor extends SearchInterceptor {
           mode: 'absolute',
         })})`;
       }
+      if (aggsConfig.date_histogram) {
+        return ` | stats count() by span(${timeField?.name}, ${
+          aggsConfig.date_histogram.fixed_interval ??
+          aggsConfig.date_histogram.calendar_interval ??
+          this.aggsService.calculateAutoTimeExpression({
+            from: fromDate,
+            to: toDate,
+            mode: 'absolute',
+          })
+        })`;
+      }
+      if (aggsConfig.avg) {
+        return ` | stats avg(${aggsConfig.avg.field})`;
+      }
+      if (aggsConfig.cardinality) {
+        return ` | dedup ${aggsConfig.cardinality.field} | stats count()`;
+      }
+      if (aggsConfig.terms) {
+        return ` | stats count() by ${aggsConfig.terms.field}`;
+      }
+      if (aggsConfig.id === 'other-filter') {
+        const uniqueConfig = getUniqueValuesForRawAggs(aggsConfig);
+        if (
+          !uniqueConfig ||
+          !uniqueConfig.field ||
+          !uniqueConfig.values ||
+          uniqueConfig.values.length === 0
+        ) {
+          return '';
+        }
 
-      if (aggsConfig.name === 'date_histogram') {
-        return ` | stats count() by span(${timeField?.name}, ${aggsConfig.interval})`;
+        let otherQueryString = ` | stats count() by ${uniqueConfig.field}`;
+        uniqueConfig.values.forEach((value, index) => {
+          otherQueryString += ` ${index === 0 ? '| where' : 'and'} ${
+            uniqueConfig.field
+          }<>'${value}'`;
+        });
+        return otherQueryString;
       }
     };
 
-    let queryString = getRawQueryString(searchRequest) ?? '';
-    const dataFrame = searchRequest.params.body.df;
-    const aggConfig = getAggConfig(searchRequest);
-    if (aggConfig) {
-      aggConfig.type = this.aggsService.types.get(aggConfig.name)?.type;
-    }
+    let queryString = removeKeyword(getRawQueryString(searchRequest)) ?? '';
+    const dataFrame = getRawDataFrame(searchRequest);
+    const aggConfig = getAggConfig(
+      searchRequest,
+      {},
+      this.aggsService.types.get.bind(this)
+    ) as DataFrameAggConfig;
 
     if (!dataFrame) {
       return fetchDataFrame(queryString).pipe(
         concatMap((response) => {
           const df = response.body;
           const timeField = getTimeField(df, aggConfig);
-          queryString += getAggString(timeField, aggConfig);
-          queryString += getTimeFilter(timeField);
+          const timeFilter = getTimeFilter(timeField);
+          df.meta = {};
+          df.meta.aggs = aggConfig;
+          df.meta.aggQueryStrings = {};
+          df.meta.aggQueryStrings[df.meta.aggs.id] = removeKeyword(
+            `${queryString} ${getAggString(timeField, df.meta.aggs)} ${timeFilter}`
+          );
+          if (df.meta.aggs.aggs) {
+            const subAggs = df.meta.aggs.aggs as Record<string, DataFrameAggConfig>;
+            Object.entries(subAggs).forEach((subAgg) => {
+              const subAggConfig: Record<string, any> = {};
+              subAggConfig[subAgg[0]] = subAgg[1];
+              df.meta.aggQueryStrings[subAgg[1].id] = removeKeyword(
+                `${queryString} ${getAggString(timeField, df.meta.aggs)} ${getAggString(
+                  timeField,
+                  subAggConfig as DataFrameAggConfig
+                )} ${timeFilter}`
+              );
+            });
+          }
+
           return fetchDataFrame(queryString, df);
         })
       );
@@ -98,8 +155,28 @@ export class QlSearchInterceptor extends SearchInterceptor {
 
     if (dataFrame) {
       const timeField = getTimeField(dataFrame, aggConfig);
-      queryString += getAggString(timeField, aggConfig);
-      queryString += getTimeFilter(timeField);
+      const timeFilter = getTimeFilter(timeField);
+      dataFrame.meta = {};
+      dataFrame.meta.aggs = aggConfig;
+      // TODO consider making this a
+      dataFrame.meta.aggQueryStrings = {};
+      dataFrame.meta.aggQueryStrings[dataFrame.meta.aggs.id] = removeKeyword(
+        `${queryString} ${getAggString(timeField, dataFrame.meta.aggs)} ${timeFilter}`
+      );
+      if (dataFrame.meta.aggs.aggs) {
+        const subAggs = dataFrame.meta.aggs.aggs as Record<string, DataFrameAggConfig>;
+        Object.entries(subAggs).forEach((subAgg) => {
+          const subAggConfig: Record<string, any> = {};
+          subAggConfig[subAgg[0]] = subAgg[1];
+          dataFrame.meta.aggQueryStrings[subAgg[1].id] = removeKeyword(
+            `${queryString} ${getAggString(timeField, dataFrame.meta.aggs)} ${getAggString(
+              timeField,
+              subAggConfig as DataFrameAggConfig
+            )} ${timeFilter}`
+          );
+        });
+      }
+      queryString += timeFilter;
     }
 
     return fetchDataFrame(queryString, dataFrame);

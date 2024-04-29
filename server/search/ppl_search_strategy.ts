@@ -76,8 +76,9 @@ export const pplSearchStrategyProvider = (
 
       try {
         const requestParams = parseRequest(request.body.query.qs);
-        const source = requestParams.map.get('source');
+        const source = requestParams?.map.get('source');
         const schema = request.body.df?.schema;
+        const meta = request.body.df?.meta;
         request.body.query =
           !schema || dataFrameHydrationStrategy === 'perQuery'
             ? `source=${source} | head`
@@ -87,6 +88,7 @@ export const pplSearchStrategyProvider = (
         const dataFrame = createDataFrame({
           name: source,
           schema: schema ?? rawResponse.data.schema,
+          meta,
           fields: getFields(rawResponse),
         });
 
@@ -94,15 +96,19 @@ export const pplSearchStrategyProvider = (
 
         if (usage) usage.trackSuccess(rawResponse.took);
 
-        if (requestParams.aggs) {
-          request.body.query = requestParams.aggs;
-          const rawAggs: any = await pplFacet.describeQuery(request);
-          (dataFrame as IDataFrameWithAggs).aggs = rawAggs.data.datarows.map((hit: any) => {
-            return {
-              key: hit[1],
-              value: hit[0],
-            };
-          });
+        if (dataFrame.meta && dataFrame.meta.aggQueryStrings) {
+          for (const [key, aggQueryString] of Object.entries(dataFrame.meta.aggQueryStrings)) {
+            const aggRequest = parseRequest(aggQueryString as string);
+            request.body.query = aggRequest.aggs;
+            const rawAggs: any = await pplFacet.describeQuery(request);
+            (dataFrame as IDataFrameWithAggs).aggs = {};
+            (dataFrame as IDataFrameWithAggs).aggs[key] = rawAggs.data.datarows?.map((hit: any) => {
+              return {
+                key: hit[1],
+                value: hit[0],
+              };
+            });
+          }
         }
 
         return {
