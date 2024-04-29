@@ -136,16 +136,16 @@ export class PPLQlSearchInterceptor extends SearchInterceptor {
           );
           if (df.meta.aggs.aggs) {
             const subAggs = df.meta.aggs.aggs as Record<string, DataFrameAggConfig>;
-            Object.entries(subAggs).forEach((subAgg) => {
+            for (const [key, subAgg] of Object.entries(subAggs)) {
               const subAggConfig: Record<string, any> = {};
-              subAggConfig[subAgg[0]] = subAgg[1];
-              df.meta.aggQueryStrings[subAgg[1].id] = removeKeyword(
+              subAggConfig[key] = subAgg;
+              df.meta.aggQueryStrings[subAgg.id] = removeKeyword(
                 `${queryString} ${getAggString(timeField, df.meta.aggs)} ${getAggString(
                   timeField,
                   subAggConfig as DataFrameAggConfig
                 )} ${timeFilter}`
               );
-            });
+            }
           }
 
           return fetchDataFrame(queryString, df);
@@ -158,23 +158,22 @@ export class PPLQlSearchInterceptor extends SearchInterceptor {
       const timeFilter = getTimeFilter(timeField);
       dataFrame.meta = {};
       dataFrame.meta.aggs = aggConfig;
-      // TODO consider making this a
       dataFrame.meta.aggQueryStrings = {};
       dataFrame.meta.aggQueryStrings[dataFrame.meta.aggs.id] = removeKeyword(
         `${queryString} ${getAggString(timeField, dataFrame.meta.aggs)} ${timeFilter}`
       );
       if (dataFrame.meta.aggs.aggs) {
         const subAggs = dataFrame.meta.aggs.aggs as Record<string, DataFrameAggConfig>;
-        Object.entries(subAggs).forEach((subAgg) => {
+        for (const [key, subAgg] of Object.entries(subAggs)) {
           const subAggConfig: Record<string, any> = {};
-          subAggConfig[subAgg[0]] = subAgg[1];
-          dataFrame.meta.aggQueryStrings[subAgg[1].id] = removeKeyword(
+          subAggConfig[key] = subAgg;
+          dataFrame.meta.aggQueryStrings[subAgg.id] = removeKeyword(
             `${queryString} ${getAggString(timeField, dataFrame.meta.aggs)} ${getAggString(
               timeField,
               subAggConfig as DataFrameAggConfig
             )} ${timeFilter}`
           );
-        });
+        }
       }
       queryString += timeFilter;
     }

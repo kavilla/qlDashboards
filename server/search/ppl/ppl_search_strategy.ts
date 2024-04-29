@@ -23,8 +23,6 @@ export const pplSearchStrategyProvider = (
 ): ISearchStrategy<IOpenSearchDashboardsSearchRequest, IDataFrameResponse> => {
   const pplFacet = new PPLFacet(client);
 
-  // search source=opensearch_dashboards_sample_data_logs| fields agent,bytes,timestamp,clientip | stats count() by span(timestamp, 12h) | where timestamp >= '2024-02-02 16:00:00.000000' and timestamp <= '2024-03-15 16:49:13.456000'
-
   const parseRequest = (query: string) => {
     const pipeMap = new Map<string, string>();
     const pipeArray = query.split('|');
@@ -69,16 +67,10 @@ export const pplSearchStrategyProvider = (
         uiSettingsClient
       );
 
-      // const params = toSnakeCase({
-      //   ...defaultParams,
-      //   ...getShardTimeout(config),
-      // });
-
       try {
         const requestParams = parseRequest(request.body.query.qs);
         const source = requestParams?.map.get('source');
-        const schema = request.body.df?.schema;
-        const meta = request.body.df?.meta;
+        const { schema, meta } = request.body.df ?? {};
         request.body.query =
           !schema || dataFrameHydrationStrategy === 'perQuery'
             ? `source=${source} | head`
@@ -96,10 +88,11 @@ export const pplSearchStrategyProvider = (
 
         if (usage) usage.trackSuccess(rawResponse.took);
 
-        if (dataFrame.meta && dataFrame.meta.aggQueryStrings) {
+        if (dataFrame.meta?.aggQueryStrings) {
           for (const [key, aggQueryString] of Object.entries(dataFrame.meta.aggQueryStrings)) {
             const aggRequest = parseRequest(aggQueryString as string);
-            request.body.query = aggRequest.aggs;
+            const query = aggRequest.aggs;
+            request.body.query = query;
             const rawAggs: any = await pplFacet.describeQuery(request);
             (dataFrame as IDataFrameWithAggs).aggs = {};
             (dataFrame as IDataFrameWithAggs).aggs[key] = rawAggs.data.datarows?.map((hit: any) => {
