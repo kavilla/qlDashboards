@@ -11,6 +11,7 @@ import {
 } from '../../../../src/plugins/data/public';
 import { SQL_SEARCH_STRATEGY } from '../../common';
 import { QlDashboardsPluginStartDependencies } from '../types';
+import { i18n } from '@osd/i18n';
 
 export class SQLQlSearchInterceptor extends SearchInterceptor {
   protected queryService!: DataPublicPluginStart['query'];
@@ -32,20 +33,37 @@ export class SQLQlSearchInterceptor extends SearchInterceptor {
   ): Observable<IOpenSearchDashboardsSearchResponse> {
     const { id, ...searchRequest } = request;
     const path = trimEnd('/api/sqlql/search');
-    const dataFrame = searchRequest.params.body.df;
-    const body = stringify({
-      query: { qs: searchRequest.params.body.query.queries[0].query, format: 'jdbc' },
-      df: dataFrame ?? null,
+
+    const fetchDataFrame = (queryString: string, df = null) => {
+      const body = stringify({ query: { qs: queryString, format: 'jdbc' }, df });
+      return from(
+        this.deps.http.fetch({
+          method: 'POST',
+          path,
+          body,
+          signal,
+        })
+      );
+    };
+
+    const dataFrame = fetchDataFrame(
+      searchRequest.params.body.query.queries[0].query,
+      searchRequest.params.body.df
+    );
+
+    // subscribe to dataFrame to see if an error is returned, display a toast message if so
+    dataFrame.subscribe((df) => {
+      if (!df.body.error) return;
+      const jsError = new Error(df.body.error.response);
+      this.deps.toasts.addError(jsError, {
+        title: i18n.translate('dqlPlugin.sqlQueryError', {
+          defaultMessage: 'Could not complete the SQL query',
+        }),
+        toastMessage: df.body.error.msg,
+      });
     });
 
-    return from(
-      this.deps.http.fetch({
-        method: 'POST',
-        path,
-        body,
-        signal,
-      })
-    );
+    return dataFrame;
   }
 
   public search(request: IOpenSearchDashboardsSearchRequest, options: ISearchOptions) {

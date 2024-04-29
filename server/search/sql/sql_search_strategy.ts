@@ -23,6 +23,14 @@ export const sqlSearchStrategyProvider = (
         request.body.query = request.body.query.qs;
         const rawResponse: any = await sqlFacet.describeQuery(request);
 
+        if (!rawResponse.success) {
+          return {
+            type: 'data_frame',
+            body: { error: rawResponse.data },
+            took: rawResponse.took,
+          };
+        }
+
         const partial: PartialDataFrame = {
           name: '',
           fields: rawResponse.data?.schema || [],
