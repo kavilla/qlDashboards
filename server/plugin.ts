@@ -14,10 +14,10 @@ import {
   QlDashboardsPluginStart,
 } from './types';
 import { defineRoutes } from './routes';
-import { PPLPlugin } from './search/ppl_plugin';
+import { PPLPlugin } from './search/ppl/ppl_plugin';
 import { EnginePlugin } from './search/engine_plugin';
 import { PPL_SEARCH_STRATEGY, SQL_SEARCH_STRATEGY } from '../common';
-import { pplSearchStrategyProvider } from './search/ppl_search_strategy';
+import { pplSearchStrategyProvider } from './search/ppl/ppl_search_strategy';
 import { sqlSearchStrategyProvider } from './search/sql/sql_search_strategy';
 import { logsPPLSpecProvider } from './sample_data/ppl';
 
@@ -40,10 +40,10 @@ export class QlDashboardsPlugin
       plugins: [PPLPlugin, EnginePlugin],
     });
 
-    const searchStrategy = pplSearchStrategyProvider(this.config$, this.logger, client);
+    const pplSearchStrategy = pplSearchStrategyProvider(this.config$, this.logger, client);
     const sqlSearchStrategy = sqlSearchStrategyProvider(this.config$, this.logger, client);
 
-    data.search.registerSearchStrategy(PPL_SEARCH_STRATEGY, searchStrategy);
+    data.search.registerSearchStrategy(PPL_SEARCH_STRATEGY, pplSearchStrategy);
     data.search.registerSearchStrategy(SQL_SEARCH_STRATEGY, sqlSearchStrategy);
 
     if (home) {
@@ -54,7 +54,7 @@ export class QlDashboardsPlugin
         pplSampleDateSet.savedObjects
       );
     }
-    defineRoutes(this.logger, router, { ppl: searchStrategy, sql: sqlSearchStrategy });
+    defineRoutes(this.logger, router, { ppl: pplSearchStrategy, sql: sqlSearchStrategy });
 
     this.logger.info('qlDashboards: Setup complete');
     return {};

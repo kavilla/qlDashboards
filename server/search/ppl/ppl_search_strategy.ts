@@ -5,15 +5,15 @@ import {
   ISearchStrategy,
   getDefaultSearchParams,
   SearchUsage,
-} from '../../../../src/plugins/data/server';
+} from '../../../../../src/plugins/data/server';
 import {
   IDataFrameResponse,
   IDataFrameWithAggs,
   IOpenSearchDashboardsSearchRequest,
   createDataFrame,
-} from '../../../../src/plugins/data/common';
+} from '../../../../../src/plugins/data/common';
 import { PPLFacet } from './ppl_facet';
-import { getFields } from '../../common/utils';
+import { getFields } from '../../../common/utils';
 
 export const pplSearchStrategyProvider = (
   config$: Observable<SharedGlobalConfig>,

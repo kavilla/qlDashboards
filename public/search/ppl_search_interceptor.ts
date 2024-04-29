@@ -21,7 +21,7 @@ import {
 import { formatDate, PPL_SEARCH_STRATEGY, removeKeyword } from '../../common';
 import { QlDashboardsPluginStartDependencies } from '../types';
 
-export class QlSearchInterceptor extends SearchInterceptor {
+export class PPLQlSearchInterceptor extends SearchInterceptor {
   protected queryService!: DataPublicPluginStart['query'];
   protected aggsService!: DataPublicPluginStart['search']['aggs'];
 
@@ -40,7 +40,7 @@ export class QlSearchInterceptor extends SearchInterceptor {
     strategy?: string
   ): Observable<IOpenSearchDashboardsSearchResponse> {
     const { id, ...searchRequest } = request;
-    const path = trimEnd('/api/ql/search');
+    const path = trimEnd('/api/pplql/search');
     const { filterManager, timefilter } = this.queryService;
     const fromDate = timefilter.timefilter.getTime().from;
     const toDate = timefilter.timefilter.getTime().to;

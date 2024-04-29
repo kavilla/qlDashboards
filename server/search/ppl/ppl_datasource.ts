@@ -4,7 +4,7 @@
  */
 
 import _ from 'lodash';
-import { IPPLEventsDataSource, IPPLVisualizationDataSource } from '../types';
+import { IPPLEventsDataSource, IPPLVisualizationDataSource } from '../../types';
 
 type PPLResponse = IPPLEventsDataSource & IPPLVisualizationDataSource;
 

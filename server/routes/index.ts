@@ -21,7 +21,7 @@ export function defineRoutes(
 ) {
   router.post(
     {
-      path: `/api/ql/search`,
+      path: `/api/pplql/search`,
       validate: {
         body: schema.object({
           query: schema.object({

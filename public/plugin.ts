@@ -8,7 +8,7 @@ import {
   QlDashboardsPluginSetupDependencies,
 } from './types';
 import { PLUGIN_NAME } from '../common';
-import { QlSearchInterceptor } from './search/search_interceptor';
+import { PPLQlSearchInterceptor } from './search/ppl_search_interceptor';
 import { SQLQlSearchInterceptor } from './search/sql_search_interceptor';
 
 export class QlDashboardsPlugin
@@ -31,7 +31,7 @@ export class QlDashboardsPlugin
       },
     });
 
-    const searchInterceptor = new QlSearchInterceptor({
+    const pplSearchInterceptor = new PPLQlSearchInterceptor({
       toasts: core.notifications.toasts,
       http: core.http,
       uiSettings: core.uiSettings,
@@ -51,13 +51,14 @@ export class QlDashboardsPlugin
       ui: {
         query: {
           language: 'PPL',
-          search: searchInterceptor,
+          search: pplSearchInterceptor,
           searchBar: {
             queryStringInput: { initialValue: 'source=<data_source>' },
             dateRange: {
               initialFrom: moment().subtract(2, 'days').toISOString(),
               initialTo: moment().add(2, 'days').toISOString(),
             },
+            showFilterBar: false,
           },
         },
       },

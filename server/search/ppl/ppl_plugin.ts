@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { OPENSEARCH_DATACONNECTIONS_API, PPL_ENDPOINT, SQL_ENDPOINT } from '../../common';
+import { OPENSEARCH_DATACONNECTIONS_API, PPL_ENDPOINT, SQL_ENDPOINT } from '../../../common';
 
 export const PPLPlugin = (client: any, config: any, components: any) => {
   const ca = components.clientAction.factory;
