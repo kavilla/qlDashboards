@@ -11,7 +11,7 @@ import {
 } from '../../../../src/plugins/data/public';
 import { SQL_SEARCH_STRATEGY } from '../../common';
 import { QlDashboardsPluginStartDependencies } from '../types';
-import { i18n } from 'packages/osd-i18n/target/types';
+import { i18n } from '@osd/i18n';
 
 export class SQLQlSearchInterceptor extends SearchInterceptor {
   protected queryService!: DataPublicPluginStart['query'];
