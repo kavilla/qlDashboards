@@ -9,6 +9,7 @@ import {
   getRawQueryString,
   getTimeField,
   getUniqueValuesForRawAggs,
+  updateDataFrameMeta,
 } from '../../../../src/plugins/data/common';
 import {
   DataPublicPluginStart,
@@ -41,7 +42,7 @@ export class PPLQlSearchInterceptor extends SearchInterceptor {
   ): Observable<IOpenSearchDashboardsSearchResponse> {
     const { id, ...searchRequest } = request;
     const path = trimEnd('/api/pplql/search');
-    const { filterManager, timefilter } = this.queryService;
+    const { timefilter } = this.queryService;
     const fromDate = timefilter.timefilter.getTime().from;
     const toDate = timefilter.timefilter.getTime().to;
 
@@ -61,6 +62,20 @@ export class PPLQlSearchInterceptor extends SearchInterceptor {
       return ` | where ${timeField?.name} >= '${formatDate(fromDate)}' and ${
         timeField?.name
       } <= '${formatDate(toDate)}'`;
+    };
+
+    const getAggQsFn = ({
+      qs,
+      aggConfig,
+      timeField,
+      timeFilter,
+    }: {
+      qs: string;
+      aggConfig: DataFrameAggConfig;
+      timeField: any;
+      timeFilter: string;
+    }) => {
+      return removeKeyword(`${qs} ${getAggString(timeField, aggConfig)} ${timeFilter}`);
     };
 
     const getAggString = (timeField: any, aggsConfig?: DataFrameAggConfig) => {
@@ -128,25 +143,14 @@ export class PPLQlSearchInterceptor extends SearchInterceptor {
           const df = response.body;
           const timeField = getTimeField(df, aggConfig);
           const timeFilter = getTimeFilter(timeField);
-          df.meta = {};
-          df.meta.aggs = aggConfig;
-          df.meta.aggQueryStrings = {};
-          df.meta.aggQueryStrings[df.meta.aggs.id] = removeKeyword(
-            `${queryString} ${getAggString(timeField, df.meta.aggs)} ${timeFilter}`
-          );
-          if (df.meta.aggs.aggs) {
-            const subAggs = df.meta.aggs.aggs as Record<string, DataFrameAggConfig>;
-            for (const [key, subAgg] of Object.entries(subAggs)) {
-              const subAggConfig: Record<string, any> = {};
-              subAggConfig[key] = subAgg;
-              df.meta.aggQueryStrings[subAgg.id] = removeKeyword(
-                `${queryString} ${getAggString(timeField, df.meta.aggs)} ${getAggString(
-                  timeField,
-                  subAggConfig as DataFrameAggConfig
-                )} ${timeFilter}`
-              );
-            }
-          }
+          updateDataFrameMeta({
+            dataFrame: df,
+            qs: queryString,
+            aggConfig,
+            timeField,
+            timeFilter,
+            getAggQsFn: getAggQsFn.bind(this),
+          });
 
           return fetchDataFrame(queryString, df);
         })
@@ -156,25 +160,14 @@ export class PPLQlSearchInterceptor extends SearchInterceptor {
     if (dataFrame) {
       const timeField = getTimeField(dataFrame, aggConfig);
       const timeFilter = getTimeFilter(timeField);
-      dataFrame.meta = {};
-      dataFrame.meta.aggs = aggConfig;
-      dataFrame.meta.aggQueryStrings = {};
-      dataFrame.meta.aggQueryStrings[dataFrame.meta.aggs.id] = removeKeyword(
-        `${queryString} ${getAggString(timeField, dataFrame.meta.aggs)} ${timeFilter}`
-      );
-      if (dataFrame.meta.aggs.aggs) {
-        const subAggs = dataFrame.meta.aggs.aggs as Record<string, DataFrameAggConfig>;
-        for (const [key, subAgg] of Object.entries(subAggs)) {
-          const subAggConfig: Record<string, any> = {};
-          subAggConfig[key] = subAgg;
-          dataFrame.meta.aggQueryStrings[subAgg.id] = removeKeyword(
-            `${queryString} ${getAggString(timeField, dataFrame.meta.aggs)} ${getAggString(
-              timeField,
-              subAggConfig as DataFrameAggConfig
-            )} ${timeFilter}`
-          );
-        }
-      }
+      updateDataFrameMeta({
+        dataFrame,
+        qs: queryString,
+        aggConfig,
+        timeField,
+        timeFilter,
+        getAggQsFn: getAggQsFn.bind(this),
+      });
       queryString += timeFilter;
     }
 

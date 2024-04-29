@@ -88,8 +88,8 @@ export const pplSearchStrategyProvider = (
 
         if (usage) usage.trackSuccess(rawResponse.took);
 
-        if (dataFrame.meta?.aggQueryStrings) {
-          for (const [key, aggQueryString] of Object.entries(dataFrame.meta.aggQueryStrings)) {
+        if (dataFrame.meta?.aggsQs) {
+          for (const [key, aggQueryString] of Object.entries(dataFrame.meta.aggsQs)) {
             const aggRequest = parseRequest(aggQueryString as string);
             const query = aggRequest.aggs;
             request.body.query = query;
