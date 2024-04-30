@@ -61,7 +61,6 @@ export class QlDashboardsPlugin
             showFilterBar: false,
           },
           fields: {
-            filterable: false,
             visualizable: false,
           },
         },
