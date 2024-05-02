@@ -58,6 +58,7 @@ export class QlDashboardsPlugin
               initialFrom: moment().subtract(2, 'days').toISOString(),
               initialTo: moment().add(2, 'days').toISOString(),
             },
+            showFilterBar: false,
           },
           fields: {
             visualizable: false,
