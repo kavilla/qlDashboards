@@ -45,7 +45,7 @@ export class PPLQlSearchInterceptor extends SearchInterceptor {
     const path = trimEnd('/api/pplql/search');
     const { timefilter } = this.queryService;
     const dateRange = timefilter.timefilter.getTime();
-    const { fromDate, toDate } = formatTimePickerDate(dateRange);
+    const { fromDate, toDate } = formatTimePickerDate(dateRange, 'YYYY-MM-DD HH:mm:ss.SSS');
 
     const fetchDataFrame = (queryString: string, df = null) => {
       const body = stringify({ query: { qs: queryString, format: 'jdbc' }, df });
