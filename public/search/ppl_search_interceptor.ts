@@ -8,6 +8,7 @@ import {
   getRawDataFrame,
   getRawQueryString,
   getTimeField,
+  formatTimePickerDate,
   getUniqueValuesForRawAggs,
   updateDataFrameMeta,
 } from '../../../../src/plugins/data/common';
@@ -43,8 +44,8 @@ export class PPLQlSearchInterceptor extends SearchInterceptor {
     const { id, ...searchRequest } = request;
     const path = trimEnd('/api/pplql/search');
     const { timefilter } = this.queryService;
-    const fromDate = timefilter.timefilter.getTime().from;
-    const toDate = timefilter.timefilter.getTime().to;
+    const dateRange = timefilter.timefilter.getTime();
+    const { fromDate, toDate } = formatTimePickerDate(dateRange, 'YYYY-MM-DD HH:mm:ss.SSS');
 
     const fetchDataFrame = (queryString: string, df = null) => {
       const body = stringify({ query: { qs: queryString, format: 'jdbc' }, df });
